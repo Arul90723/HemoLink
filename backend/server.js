@@ -52,18 +52,20 @@ app.post('/api/chat', async (req, res) => {
 
     const prompt = `You are HemoLink AI, a medical logistics assistant. User: ${message}. Answer in 2 sentences.`;
 
-    // Bulletproof multi-attempt logic
+    // Total-Coverage Failover Logic
     const endpoints = [
-      { ver: 'v1beta', model: 'gemini-1.5-flash' },
-      { ver: 'v1', model: 'gemini-1.5-flash' },
-      { ver: 'v1beta', model: 'gemini-pro' },
-      { ver: 'v1', model: 'gemini-pro' }
+      { dom: 'generativelanguage.googleapis.com', ver: 'v1beta', model: 'gemini-1.5-flash' },
+      { dom: 'generativelanguage.googleapis.com', ver: 'v1', model: 'gemini-1.5-flash' },
+      { dom: 'generativeai.googleapis.com', ver: 'v1beta', model: 'gemini-1.5-flash' },
+      { dom: 'generativeai.googleapis.com', ver: 'v1', model: 'gemini-1.5-flash' },
+      { dom: 'generativelanguage.googleapis.com', ver: 'v1beta', model: 'gemini-pro' },
+      { dom: 'generativelanguage.googleapis.com', ver: 'v1', model: 'gemini-pro' }
     ];
 
     let lastError = null;
     for (const ep of endpoints) {
       try {
-        const response = await fetch(`https://generativelanguage.googleapis.com/${ep.ver}/models/${ep.model}:generateContent?key=${process.env.GEMINI_API_KEY}`, {
+        const response = await fetch(`https://${ep.dom}/${ep.ver}/models/${ep.model}:generateContent?key=${process.env.GEMINI_API_KEY}`, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ contents: [{ parts: [{ text: prompt }] }] })
@@ -72,7 +74,7 @@ app.post('/api/chat', async (req, res) => {
         if (data.candidates?.[0]?.content?.parts?.[0]?.text) {
           return res.json({ content: data.candidates[0].content.parts[0].text });
         }
-        if (data.error) lastError = data.error.message;
+        if (data.error) lastError = `[${ep.dom}/${ep.ver}/${ep.model}]: ${data.error.message}`;
       } catch (err) {
         lastError = err.message;
       }
