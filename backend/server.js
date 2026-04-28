@@ -97,7 +97,7 @@ app.post('/api/chat', async (req, res) => {
             });
             const d = await res.json();
             if (d.candidates?.[0]?.content?.parts?.[0]?.text) {
-              workingConfig = { model: mep.model, ver: MEP.ver };
+              workingConfig = { model: mep.model, ver: mep.ver };
               break;
             }
           } catch (e) {}
