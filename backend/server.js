@@ -52,7 +52,14 @@ app.post('/api/chat', async (req, res) => {
 
     const prompt = `You are HemoLink AI, a medical logistics assistant. User: ${message}. Answer in 2 sentences.`;
 
-    const response = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${process.env.GEMINI_API_KEY}`, {
+    // Dynamic model selection to ensure we always find a working model for this key
+    const listRes = await fetch(`https://generativelanguage.googleapis.com/v1beta/models?key=${process.env.GEMINI_API_KEY}`);
+    const listData = await listRes.json();
+    
+    // Find the first model that supports generateContent
+    const availableModel = listData.models?.find(m => m.supportedGenerationMethods.includes('generateContent'))?.name || 'models/gemini-1.5-flash';
+
+    const response = await fetch(`https://generativelanguage.googleapis.com/v1beta/${availableModel}:generateContent?key=${process.env.GEMINI_API_KEY}`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ contents: [{ parts: [{ text: prompt }] }] })
