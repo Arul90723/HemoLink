@@ -76,8 +76,8 @@ app.post('/api/chat', async (req, res) => {
     res.json({ content: aiText });
   } catch (error) {
     console.error('Gemini Error:', error);
-    // Silent fallback for production stability
-    res.json({ content: "I'm currently optimizing my neural links. O- blood is the universal donor, and we have 42 nodes active in your region. How else can I assist?" });
+    // Dynamic error reporting for the final debug phase
+    res.json({ content: `[SYSTEM ERROR]: ${error.message}. Please verify API billing and regional availability.` });
   }
 });
 
