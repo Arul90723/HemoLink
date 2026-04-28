@@ -42,15 +42,12 @@ app.use(express.static(path.join(__dirname, 'dist')));
 app.post('/api/chat', async (req, res) => {
   try {
     const { message } = req.body;
-    const apiKey = process.env.GEMINI_API_KEY;
+    // Using the natively created Project Key for maximum reliability
+    const apiKey = "AIzaSyBkTtCF-iRxcN4IEbvfwsARWLGrVOyCwJs";
     
-    if (!apiKey || apiKey.includes('fake')) {
-       return res.json({ content: "HemoLink AI: Please provide a valid Gemini API key to activate my intelligent logic." });
-    }
-
     const { GoogleGenerativeAI } = require('@google/generative-ai');
     const genAI = new GoogleGenerativeAI(apiKey);
-    const model = genAI.getGenerativeModel({ model: "gemini-1.5-flash" });
+    const model = genAI.getGenerativeModel({ model: "gemini-2.0-flash" });
     
     const prompt = `You are HemoLink AI, a medical logistics assistant. User: ${message}. Answer in 2 sentences.`;
 
