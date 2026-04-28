@@ -52,32 +52,36 @@ app.post('/api/chat', async (req, res) => {
 
     const prompt = `You are HemoLink AI, a medical logistics assistant. User: ${message}. Answer in 2 sentences.`;
 
-    // Dynamic model selection to ensure we always find a working model for this key
-    const listRes = await fetch(`https://generativelanguage.googleapis.com/v1beta/models?key=${process.env.GEMINI_API_KEY}`);
-    const listData = await listRes.json();
-    
-    // Find the first model that supports generateContent
-    const availableModel = listData.models?.find(m => m.supportedGenerationMethods.includes('generateContent'))?.name || 'models/gemini-1.5-flash';
+    // Bulletproof multi-attempt logic
+    const endpoints = [
+      { ver: 'v1beta', model: 'gemini-1.5-flash' },
+      { ver: 'v1', model: 'gemini-1.5-flash' },
+      { ver: 'v1beta', model: 'gemini-pro' },
+      { ver: 'v1', model: 'gemini-pro' }
+    ];
 
-    const response = await fetch(`https://generativelanguage.googleapis.com/v1beta/${availableModel}:generateContent?key=${process.env.GEMINI_API_KEY}`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ contents: [{ parts: [{ text: prompt }] }] })
-    });
-    
-    const data = await response.json();
-    
-    if (data.error) {
-       console.error('Gemini API Error:', data.error);
-       throw new Error(data.error.message);
+    let lastError = null;
+    for (const ep of endpoints) {
+      try {
+        const response = await fetch(`https://generativelanguage.googleapis.com/${ep.ver}/models/${ep.model}:generateContent?key=${process.env.GEMINI_API_KEY}`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ contents: [{ parts: [{ text: prompt }] }] })
+        });
+        const data = await response.json();
+        if (data.candidates?.[0]?.content?.parts?.[0]?.text) {
+          return res.json({ content: data.candidates[0].content.parts[0].text });
+        }
+        if (data.error) lastError = data.error.message;
+      } catch (err) {
+        lastError = err.message;
+      }
     }
 
-    const aiText = data.candidates[0].content.parts[0].text;
-    res.json({ content: aiText });
+    throw new Error(lastError || "All endpoints failed. Please check API Key permissions.");
   } catch (error) {
     console.error('Gemini Error:', error);
-    // Dynamic error reporting for the final debug phase
-    res.json({ content: `[SYSTEM ERROR]: ${error.message}. Please verify API billing and regional availability.` });
+    res.json({ content: `[SYSTEM ERROR]: ${error.message}. Please ensure the Generative Language API is enabled in your Google Cloud Console.` });
   }
 });
 
