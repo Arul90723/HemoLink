@@ -12,7 +12,6 @@ The platform is actively deployed and serving traffic:
 - **Live Satellite Map**: Real-time visualization of the hospital network using the Google Maps API.
 - **Emergency Priority Engine**: Smart sorting of blood requests based on urgency and type rarity.
 - **Digital Inventory Management**: Hospitals can track and update their blood stock in real-time.
-- **HemoLink AI Assistant**: Gemini-powered medical intelligence for instant logistics and clinical queries.
 - **Instant Broadcast**: Push-notification style alerts for critical blood shortages.
 - **Premium UI**: High-contrast, accessibility-focused design for high-pressure medical environments.
 

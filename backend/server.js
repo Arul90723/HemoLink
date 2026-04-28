@@ -39,40 +39,45 @@ app.get('/api/seed', async (req, res) => {
 app.use(express.static(path.join(__dirname, 'dist')));
 
 // Chatbot Endpoint (Gemini)
+const { GoogleGenerativeAI } = require('@google/generative-ai');
+const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY || 'AIzaSy_fake_key');
+
 app.post('/api/chat', async (req, res) => {
   try {
     const { message } = req.body;
-    const apiKey = process.env.GEMINI_API_KEY;
     
-    if (!apiKey || apiKey.includes('fake')) {
+    if (!process.env.GEMINI_API_KEY || process.env.GEMINI_API_KEY.includes('fake')) {
        return res.json({ content: "HemoLink AI: Please provide a valid Gemini API key to activate my intelligent logic." });
     }
 
-    const { GoogleGenerativeAI } = require('@google/generative-ai');
-    const genAI = new GoogleGenerativeAI(apiKey);
-    
-    // We try gemini-1.5-flash as the primary choice
-    const model = genAI.getGenerativeModel({ model: "gemini-1.5-flash" });
     const prompt = `You are HemoLink AI, a medical logistics assistant. User: ${message}. Answer in 2 sentences.`;
 
-    const result = await model.generateContent(prompt);
-    const response = await result.response;
-    res.json({ content: response.text() });
-  } catch (error) {
-    console.error('Gemini Critical Error:', error);
-    // If it's a 404, try gemini-pro as a fallback
-    if (error.message.includes('404') || error.message.includes('not found')) {
-      try {
-        const genAI = new (require('@google/generative-ai').GoogleGenerativeAI)(process.env.GEMINI_API_KEY);
-        const model = genAI.getGenerativeModel({ model: "gemini-pro" });
-        const result = await model.generateContent(`User: ${req.body.message}. Answer in 2 sentences.`);
-        const response = await result.response;
-        return res.json({ content: response.text() });
-      } catch (e2) {
-        console.error('Gemini Fallback Error:', e2);
-      }
+    // Dynamic model selection to ensure we always find a working model for this key
+    const listRes = await fetch(`https://generativelanguage.googleapis.com/v1beta/models?key=${process.env.GEMINI_API_KEY}`);
+    const listData = await listRes.json();
+    
+    // Find the first model that supports generateContent
+    const availableModel = listData.models?.find(m => m.supportedGenerationMethods.includes('generateContent'))?.name || 'models/gemini-1.5-flash';
+
+    const response = await fetch(`https://generativelanguage.googleapis.com/v1beta/${availableModel}:generateContent?key=${process.env.GEMINI_API_KEY}`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ contents: [{ parts: [{ text: prompt }] }] })
+    });
+    
+    const data = await response.json();
+    
+    if (data.error) {
+       console.error('Gemini API Error:', data.error);
+       throw new Error(data.error.message);
     }
-    res.json({ content: "I'm currently optimizing my neural links. O- blood is the universal donor, and we have 42 nodes active in your region. How else can I assist?" });
+
+    const aiText = data.candidates[0].content.parts[0].text;
+    res.json({ content: aiText });
+  } catch (error) {
+    console.error('Gemini Error:', error);
+    // Dynamic error reporting for the final debug phase
+    res.json({ content: `[SYSTEM ERROR]: ${error.message}. Please verify API billing and regional availability.` });
   }
 });
 
