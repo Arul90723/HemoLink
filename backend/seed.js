@@ -5,13 +5,7 @@ const User = require('./models/User');
 const Hospital = require('./models/Hospital');
 const Donor = require('./models/Donor');
 
-// Connect to MongoDB
-mongoose.connect(process.env.MONGODB_URI || 'mongodb://localhost:27017/hemolink')
-  .then(() => console.log('Connected to MongoDB for Seeding'))
-  .catch(err => {
-    console.error('Database connection error:', err);
-    process.exit(1);
-  });
+// Seeding logic module
 
 // Coordinates around Palakkad, Kerala (approx 10.7867, 76.6548)
 const hospitalsData = [
@@ -77,11 +71,17 @@ const seedDatabase = async () => {
     }
 
     console.log('✅ Database seeded successfully with mock data for Palakkad region!');
-    process.exit(0);
+    return { success: true };
   } catch (error) {
     console.error('Seeding failed:', error);
-    process.exit(1);
+    throw error;
   }
 };
 
-seedDatabase();
+module.exports = seedDatabase;
+
+if (require.main === module) {
+  // If run directly via node seed.js
+  mongoose.connect(process.env.MONGODB_URI || 'mongodb://localhost:27017/hemolink')
+    .then(() => seedDatabase().then(() => process.exit(0)).catch(() => process.exit(1)));
+}

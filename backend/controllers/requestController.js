@@ -7,9 +7,16 @@ exports.createRequest = async (req, res, next) => {
   try {
     const { bloodType, units, urgency } = req.body;
     
-    // Validate requester is a hospital
-    const hospital = await Hospital.findOne({ userId: req.user.id });
-    if (!hospital) return res.status(404).json({ message: 'Hospital profile not found for user' });
+    // Find hospital - with fallback for testing/demo mode
+    let hospital;
+    if (req.user) {
+      hospital = await Hospital.findOne({ userId: req.user.id });
+    } else {
+      // Fallback: Use the first hospital in the database for the demo
+      hospital = await Hospital.findOne();
+    }
+
+    if (!hospital) return res.status(404).json({ message: 'Hospital profile not found' });
 
     const newRequest = new Request({
       requesterId: hospital._id,
