@@ -55,7 +55,12 @@ app.post('/api/chat', async (req, res) => {
        return res.json({ content: mockResponse });
     }
 
-    const model = genAI.getGenerativeModel({ model: 'gemini-pro' });
+    // Debug: Check if key is loaded (Safe: only prints first 4 chars)
+    if (process.env.GEMINI_API_KEY) {
+      console.log(`Using Gemini Key starting with: ${process.env.GEMINI_API_KEY.substring(0, 4)}...`);
+    }
+
+    const model = genAI.getGenerativeModel({ model: 'gemini-1.5-flash' });
     const prompt = `You are HemoLink AI, a helpful medical assistant for a blood logistics platform. 
     A user asks: "${message}". 
     Provide a concise, professional answer (max 3 sentences) about blood donation, blood types, or how to use HemoLink.`;
