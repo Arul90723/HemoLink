@@ -52,38 +52,70 @@ app.post('/api/chat', async (req, res) => {
 
     const prompt = `You are HemoLink AI, a medical logistics assistant. User: ${message}. Answer in 2 sentences.`;
 
-    // Total-Coverage Failover Logic
-    const endpoints = [
-      { dom: 'generativelanguage.googleapis.com', ver: 'v1beta', model: 'gemini-1.5-flash' },
-      { dom: 'generativelanguage.googleapis.com', ver: 'v1', model: 'gemini-1.5-flash' },
-      { dom: 'generativeai.googleapis.com', ver: 'v1beta', model: 'gemini-1.5-flash' },
-      { dom: 'generativeai.googleapis.com', ver: 'v1', model: 'gemini-1.5-flash' },
-      { dom: 'generativelanguage.googleapis.com', ver: 'v1beta', model: 'gemini-pro' },
-      { dom: 'generativelanguage.googleapis.com', ver: 'v1', model: 'gemini-pro' }
-    ];
-
-    let lastError = null;
-    for (const ep of endpoints) {
-      try {
-        const response = await fetch(`https://${ep.dom}/${ep.ver}/models/${ep.model}:generateContent?key=${process.env.GEMINI_API_KEY}`, {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ contents: [{ parts: [{ text: prompt }] }] })
-        });
-        const data = await response.json();
-        if (data.candidates?.[0]?.content?.parts?.[0]?.text) {
-          return res.json({ content: data.candidates[0].content.parts[0].text });
+    // Autonomous Model Scanner
+    let workingConfig = null;
+    try {
+      const listRes = await fetch(`https://generativelanguage.googleapis.com/v1beta/models?key=${process.env.GEMINI_API_KEY}`);
+      const listData = await listRes.json();
+      
+      if (listData.models) {
+        // Find all candidates
+        const candidates = listData.models.filter(m => m.supportedGenerationMethods.includes('generateContent'));
+        
+        for (const cand of candidates) {
+          try {
+            const testResponse = await fetch(`https://generativelanguage.googleapis.com/v1beta/${cand.name}:generateContent?key=${process.env.GEMINI_API_KEY}`, {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({ contents: [{ parts: [{ text: "Hi" }] }] })
+            });
+            const testData = await testResponse.json();
+            if (testData.candidates?.[0]?.content?.parts?.[0]?.text) {
+              workingConfig = { model: cand.name, ver: 'v1beta' };
+              break;
+            }
+          } catch (e) {}
         }
-        if (data.error) lastError = `[${ep.dom}/${ep.ver}/${ep.model}]: ${data.error.message}`;
-      } catch (err) {
-        lastError = err.message;
       }
+    } catch (err) {
+      console.error('Scanner Error:', err);
     }
 
-    throw new Error(lastError || "All endpoints failed. Please check API Key permissions.");
+    if (!workingConfig) {
+       // Final manual failover attempts
+       const manualEndpoints = [
+         { ver: 'v1', model: 'models/gemini-1.5-flash' },
+         { ver: 'v1beta', model: 'models/gemini-1.5-flash' },
+         { ver: 'v1', model: 'models/gemini-pro' }
+       ];
+       for (const mep of manualEndpoints) {
+          try {
+            const res = await fetch(`https://generativelanguage.googleapis.com/${mep.ver}/${mep.model}:generateContent?key=${process.env.GEMINI_API_KEY}`, {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({ contents: [{ parts: [{ text: "Hi" }] }] })
+            });
+            const d = await res.json();
+            if (d.candidates?.[0]?.content?.parts?.[0]?.text) {
+              workingConfig = { model: mep.model, ver: MEP.ver };
+              break;
+            }
+          } catch (e) {}
+       }
+    }
+
+    if (!workingConfig) throw new Error("Autonomous scanner failed to find a working AI frequency. Please check project billing.");
+
+    const finalResponse = await fetch(`https://generativelanguage.googleapis.com/${workingConfig.ver}/${workingConfig.model}:generateContent?key=${process.env.GEMINI_API_KEY}`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ contents: [{ parts: [{ text: prompt }] }] })
+    });
+    const finalData = await finalResponse.json();
+    res.json({ content: finalData.candidates[0].content.parts[0].text });
   } catch (error) {
-    console.error('Gemini Total Failover Error:', error);
-    res.json({ content: `[SYSTEM ERROR]: All 6 failover endpoints failed. Last Error: ${error.message}. TIP: Verify that the 'Generative Language API' is enabled in the project where this API Key was created.` });
+    console.error('Gemini Autonomous Error:', error);
+    res.json({ content: `[AUTONOMOUS SCANNER FAILURE]: ${error.message}. TIP: Verify that the project has a valid billing account attached.` });
   }
 });
 
