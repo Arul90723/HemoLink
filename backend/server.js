@@ -82,9 +82,8 @@ app.post('/api/chat', async (req, res) => {
 
     throw new Error(lastError || "All endpoints failed. Please check API Key permissions.");
   } catch (error) {
-    console.error('Gemini Error:', error);
-    // Silent fallback for production stability (professional version)
-    res.json({ content: "I'm currently optimizing my neural links. O- blood is the universal donor, and we have 42 nodes active in your region. How else can I assist?" });
+    console.error('Gemini Total Failover Error:', error);
+    res.json({ content: `[SYSTEM ERROR]: All 6 failover endpoints failed. Last Error: ${error.message}. TIP: Verify that the 'Generative Language API' is enabled in the project where this API Key was created.` });
   }
 });
 
