@@ -42,9 +42,12 @@ app.use(express.static(path.join(__dirname, 'dist')));
 app.post('/api/chat', async (req, res) => {
   try {
     const { message } = req.body;
-    // Using the natively created Project Key for maximum reliability
-    const apiKey = "AIzaSyBkTtCF-iRxcN4IEbvfwsARWLGrVOyCwJs";
+    const apiKey = process.env.GEMINI_API_KEY;
     
+    if (!apiKey || apiKey.includes('fake')) {
+       return res.json({ content: "HemoLink AI: Please provide a valid Gemini API key to activate my intelligent logic." });
+    }
+
     const { GoogleGenerativeAI } = require('@google/generative-ai');
     const genAI = new GoogleGenerativeAI(apiKey);
     
