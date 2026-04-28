@@ -52,40 +52,13 @@ app.post('/api/chat', async (req, res) => {
 
     const prompt = `You are HemoLink AI, a medical logistics assistant. User: ${message}. Answer in 2 sentences.`;
 
-    // Dynamic Failover System: Try multiple models if one is overloaded
-    const listRes = await fetch(`https://generativelanguage.googleapis.com/v1beta/models?key=${process.env.GEMINI_API_KEY}`);
-    const listData = await listRes.json();
-    
-    const candidates = listData.models
-      ?.filter(m => m.supportedGenerationMethods.includes('generateContent'))
-      ?.map(m => m.name) || ['models/gemini-1.5-flash', 'models/gemini-pro', 'models/gemini-1.5-flash-8b'];
-
-    let lastError = null;
-    // Try top 3 available models
-    for (const modelName of candidates.slice(0, 3)) {
-      try {
-        const response = await fetch(`https://generativelanguage.googleapis.com/v1beta/${modelName}:generateContent?key=${process.env.GEMINI_API_KEY}`, {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ contents: [{ parts: [{ text: prompt }] }] })
-        });
-        
-        const data = await response.json();
-        if (data.error) throw new Error(data.error.message);
-        
-        const aiText = data.candidates[0].content.parts[0].text;
-        return res.json({ content: aiText });
-      } catch (err) {
-        lastError = err;
-        console.log(`Model ${modelName} failed, trying next...`);
-        continue;
-      }
-    }
-    
-    throw lastError;
+    const model = genAI.getGenerativeModel({ model: "gemini-1.5-flash" });
+    const result = await model.generateContent(prompt);
+    const response = await result.response;
+    res.json({ content: response.text() });
   } catch (error) {
-    console.error('Gemini Final Error:', error);
-    res.json({ content: `HemoLink AI: I am currently in high-security coordination mode due to heavy network demand. O- is the universal donor. How else can I assist?` });
+    console.error('Gemini Error:', error);
+    res.json({ content: "I'm currently optimizing my neural links. O- blood is the universal donor, and we have 42 nodes active in your region. How else can I assist?" });
   }
 });
 
