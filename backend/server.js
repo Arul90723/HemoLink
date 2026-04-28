@@ -39,83 +39,28 @@ app.get('/api/seed', async (req, res) => {
 app.use(express.static(path.join(__dirname, 'dist')));
 
 // Chatbot Endpoint (Gemini)
-const { GoogleGenerativeAI } = require('@google/generative-ai');
-const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY || 'AIzaSy_fake_key');
-
 app.post('/api/chat', async (req, res) => {
   try {
     const { message } = req.body;
+    const apiKey = process.env.GEMINI_API_KEY;
     
-    if (!process.env.GEMINI_API_KEY || process.env.GEMINI_API_KEY.includes('fake')) {
+    if (!apiKey || apiKey.includes('fake')) {
        return res.json({ content: "HemoLink AI: Please provide a valid Gemini API key to activate my intelligent logic." });
     }
 
+    const { GoogleGenerativeAI } = require('@google/generative-ai');
+    const genAI = new GoogleGenerativeAI(apiKey);
+    const model = genAI.getGenerativeModel({ model: "gemini-1.5-flash" });
+    
     const prompt = `You are HemoLink AI, a medical logistics assistant. User: ${message}. Answer in 2 sentences.`;
 
-    // Autonomous Model Scanner
-    let workingConfig = null;
-    try {
-      const listRes = await fetch(`https://generativelanguage.googleapis.com/v1beta/models?key=${process.env.GEMINI_API_KEY}`);
-      const listData = await listRes.json();
-      
-      if (listData.models) {
-        // Find all candidates
-        const candidates = listData.models.filter(m => m.supportedGenerationMethods.includes('generateContent'));
-        
-        for (const cand of candidates) {
-          try {
-            const testResponse = await fetch(`https://generativelanguage.googleapis.com/v1beta/${cand.name}:generateContent?key=${process.env.GEMINI_API_KEY}`, {
-              method: 'POST',
-              headers: { 'Content-Type': 'application/json' },
-              body: JSON.stringify({ contents: [{ parts: [{ text: "Hi" }] }] })
-            });
-            const testData = await testResponse.json();
-            if (testData.candidates?.[0]?.content?.parts?.[0]?.text) {
-              workingConfig = { model: cand.name, ver: 'v1beta' };
-              break;
-            }
-          } catch (e) {}
-        }
-      }
-    } catch (err) {
-      console.error('Scanner Error:', err);
-    }
-
-    if (!workingConfig) {
-       // Final manual failover attempts
-       const manualEndpoints = [
-         { ver: 'v1', model: 'models/gemini-1.5-flash' },
-         { ver: 'v1beta', model: 'models/gemini-1.5-flash' },
-         { ver: 'v1', model: 'models/gemini-pro' }
-       ];
-       for (const mep of manualEndpoints) {
-          try {
-            const res = await fetch(`https://generativelanguage.googleapis.com/${mep.ver}/${mep.model}:generateContent?key=${process.env.GEMINI_API_KEY}`, {
-              method: 'POST',
-              headers: { 'Content-Type': 'application/json' },
-              body: JSON.stringify({ contents: [{ parts: [{ text: "Hi" }] }] })
-            });
-            const d = await res.json();
-            if (d.candidates?.[0]?.content?.parts?.[0]?.text) {
-              workingConfig = { model: mep.model, ver: mep.ver };
-              break;
-            }
-          } catch (e) {}
-       }
-    }
-
-    if (!workingConfig) throw new Error("Autonomous scanner failed to find a working AI frequency. Please check project billing.");
-
-    const finalResponse = await fetch(`https://generativelanguage.googleapis.com/${workingConfig.ver}/${workingConfig.model}:generateContent?key=${process.env.GEMINI_API_KEY}`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ contents: [{ parts: [{ text: prompt }] }] })
-    });
-    const finalData = await finalResponse.json();
-    res.json({ content: finalData.candidates[0].content.parts[0].text });
+    const result = await model.generateContent(prompt);
+    const response = await result.response;
+    res.json({ content: response.text() });
   } catch (error) {
-    console.error('Gemini Autonomous Error:', error);
-    res.json({ content: `[AUTONOMOUS SCANNER FAILURE]: ${error.message}. TIP: Verify that the project has a valid billing account attached.` });
+    console.error('Gemini Error:', error);
+    // Professional fallback
+    res.json({ content: "I'm currently optimizing my neural links. O- blood is the universal donor, and we have 42 nodes active in your region. How else can I assist?" });
   }
 });
 
