@@ -38,35 +38,28 @@ app.get('/api/seed', async (req, res) => {
 // Serve static files from the React app dist folder
 app.use(express.static(path.join(__dirname, 'dist')));
 
-// Chatbot Endpoint (Gemini)
+// Chatbot Endpoint (Vertex AI)
 app.post('/api/chat', async (req, res) => {
   try {
     const { message } = req.body;
-    const apiKey = process.env.GEMINI_API_KEY;
+    const { VertexAI } = require('@google-cloud/vertexai');
     
-    if (!apiKey || apiKey.includes('fake')) {
-       return res.json({ content: "HemoLink AI: Please provide a valid Gemini API key to activate my intelligent logic." });
-    }
+    // Initialize Vertex AI with your project and region
+    const vertex_ai = new VertexAI({ project: 'hemolink-494510', location: 'asia-south1' });
+    const model = vertex_ai.getGenerativeModel({ model: 'gemini-1.5-flash' });
 
-    const { GoogleGenerativeAI } = require('@google/generative-ai');
-    const genAI = new GoogleGenerativeAI(apiKey);
-    
-    let result;
-    try {
-      // Attempt 1: Gemini 2.0 (Newest)
-      const model = genAI.getGenerativeModel({ model: "gemini-2.0-flash" });
-      result = await model.generateContent(`You are HemoLink AI. User: ${message}. Answer in 2 sentences.`);
-    } catch (e) {
-      console.log("Gemini 2.0 fallback to 1.5 due to project limits.");
-      // Attempt 2: Gemini 1.5 (Stable)
-      const model = genAI.getGenerativeModel({ model: "gemini-1.5-flash" });
-      result = await model.generateContent(`You are HemoLink AI. User: ${message}. Answer in 2 sentences.`);
-    }
+    const prompt = `You are HemoLink AI, a medical logistics assistant. User: ${message}. Answer in 2 sentences.`;
 
+    const request = {
+      contents: [{ role: 'user', parts: [{ text: prompt }] }],
+    };
+
+    const result = await model.generateContent(request);
     const response = await result.response;
-    res.json({ content: response.text() });
+    const aiText = response.candidates[0].content.parts[0].text;
+    res.json({ content: aiText });
   } catch (error) {
-    console.error('Gemini Error:', error);
+    console.error('Vertex AI Error:', error);
     // Professional fallback
     res.json({ content: "I'm currently optimizing my neural links. O- blood is the universal donor, and we have 42 nodes active in your region. How else can I assist?" });
   }
