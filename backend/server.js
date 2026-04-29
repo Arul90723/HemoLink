@@ -60,8 +60,8 @@ app.post('/api/chat', async (req, res) => {
     res.json({ content: aiText });
   } catch (error) {
     console.error('Vertex AI Error:', error);
-    // Professional fallback
-    res.json({ content: "I'm currently optimizing my neural links. O- blood is the universal donor, and we have 42 nodes active in your region. How else can I assist?" });
+    // Diagnostic output
+    res.json({ content: `[DIAGNOSTIC ERROR]: ${error.message}. TIP: Check Cloud Run logs for stack trace.` });
   }
 });
 
